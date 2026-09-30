@@ -5,6 +5,7 @@ import { rateLimit } from 'express-rate-limit';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import { createBearerAuth, type AuthFailureReason } from './auth';
+import { MODERN_PROTOCOL_VERSION, SDK_PROTOCOL_VERSION } from './modernProtocol';
 
 /** 바인드 주소는 루프백 고정이다. 0.0.0.0 금지 (project.md §5.2). */
 const BIND_ADDRESS = '127.0.0.1';
@@ -141,6 +142,19 @@ export class McpHttpServer {
     req: express.Request,
     res: express.Response
   ): Promise<void> {
+    // The installed MCP SDK validates transport headers before dispatching.
+    // Modern requests are self-contained in params._meta, so let the isolated
+    // compatibility layer handle them while presenting the newest SDK version
+    // the transport itself understands.
+    if (req.header('mcp-protocol-version') === MODERN_PROTOCOL_VERSION) {
+      req.headers['mcp-protocol-version'] = SDK_PROTOCOL_VERSION;
+      for (let index = 0; index < req.rawHeaders.length; index += 2) {
+        if (req.rawHeaders[index]?.toLowerCase() === 'mcp-protocol-version') {
+          req.rawHeaders[index + 1] = SDK_PROTOCOL_VERSION;
+        }
+      }
+    }
+
     const server = this.options.createServer();
     // sessionIdGenerator를 주지 않으면 무상태 모드가 된다.
     // SDK는 무상태에서 transport 재사용을 거부하므로 요청마다 새로 만든다.
