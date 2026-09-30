@@ -1,6 +1,7 @@
 import * as path from 'node:path';
 import * as vscode from 'vscode';
 import { isListingExcluded } from '../../workspace/denyList';
+import { getGitWorkspaceSummary } from '../../workspace/gitStatus';
 import { textResult, type ToolContext, type ToolResult } from './types';
 
 const FILE_SCAN_LIMIT = 20_000;
@@ -11,7 +12,8 @@ export const GET_WORKSPACE_INFO_DESCRIPTION = `Return an overview of the current
 
 **Call this first, at the start of any coding task.** It tells you the project
 name, how many files there are, the dominant languages, which editors are open,
-which file is active with the cursor position, and a diagnostics summary.
+the Git branch and change counts, which file is active with the cursor position,
+and a diagnostics summary.
 
 When to use: the first turn of a conversation, and again after the user says
 they switched projects.
@@ -86,6 +88,9 @@ export async function getWorkspaceInfoTool(ctx: ToolContext): Promise<ToolResult
     sections.push(`Files: ${counted.length}${suffix} (.gitignore and node_modules excluded)`);
     sections.push(`Main languages: ${top.length > 0 ? top.join(', ') : 'undetermined'}`);
   }
+
+  // ── Git 브랜치 / 변경 요약 ─────────────────────────────────────
+  sections.push(await getGitWorkspaceSummary(ctx.root));
 
   // ── 열린 편집기 ─────────────────────────────────────────────────
   const openPaths: string[] = [];
